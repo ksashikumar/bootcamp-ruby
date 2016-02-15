@@ -77,6 +77,39 @@ class Maze
   end
 
   def steps
+    queue = Queue.new 
+
+    visited = Array.new(@row)
+
+    for i in 0...@col 
+      visited[i] = Array.new(@col, false)
+    end
+    k = 0
+    start = [@sx, @sy, k]
+    queue.push(start)
+
+    x1 = [1, -1, 0, 0]
+    y1 = [0, 0, 1, -1]
+
+    while !queue.empty?
+      node = queue.pop
+      for i in (0...4)
+        x = x1[i] + node[0]
+        y = y1[i] + node[1]
+        if x >= 0 && x < @row && y >= 0 && y < @col && @strs[x][y] != '#'
+          if !visited[x][y]
+            visited[x][y] = true
+            k = node[2] + 1
+            point = [x, y, k]
+            if @strs[x][y] == 'B'
+              return k
+            end
+            queue.push(point)
+          end 
+        end
+      end
+    end
+    return 0
   end
 
 end
