@@ -1,68 +1,68 @@
 require 'time'
-require 'date'
-
 
 class BusinessHours
+  DAYS = [:sun, :mon, :tue, :wed, :thu, :fri, :sat]
+  
+  def initialize(start_time, end_time)
+    @normal_days = {}
+    @holidays = {}
 
-  def initialize(time_in, time_out)
-    @default_range = TimeRange.new(time_in, time_out)
-    @modified_days = {}
+    DAYS.each do |day|
+      set_hours day, start_time, end_time
+    end
   end
 
-  def update(day, time_in, time_out)
-    key = day.is_a?(Symbol) ? day : Date.parse(day)
-    @modified_days.merge!({key => TimeRange.new(time_in, time_out)})
+  def update(day, start_time, end_time)
+    set_hours day, start_time, end_time
   end
 
   def closed(*days)
-    days.each {|day| update(day, '0:00', '0:00')}
-  end
-
-  def [](date)
-    day_of_week = date.strftime("%a").downcase.to_sym
-    range = @modified_days[date] || @modified_days[day_of_week] || @default_range
-    range.reset_date(date)
-    range
-  end
-
-  def calculate_deadline(seconds, start_time)
-    start_time = Time.parse(start_time)
-    range = self[start_time.to_date]
-
-    if range.applies?(start_time)
-      start_time = [start_time, range.start].max
-      available_seconds = range.stop - start_time
-
-      return start_time + seconds if available_seconds > seconds
-      seconds -= available_seconds
+    days.each do |day|
+      if day.is_a? Symbol
+        @normal_days[day] = {}
+      else
+        @holidays[day] = {}
+      end
     end
-
-    calculate_deadline(seconds, (start_time.to_date + 1).to_s)
   end
 
-end
+  def calculate_deadline(job_length, job_start)
+    job_start = Time.parse(job_start) if !job_start.is_a? Time
 
-class TimeRange
+    job_day = Time.parse(job_start.strftime("%Y-%m-%d"))
 
-  def initialize(time_in, time_out)
-    @range = Time.parse(time_in)..Time.parse(time_out)
+    hours= @holidays[job_day.strftime("%Y-%m-%d")] || @normal_days[DAYS[job_day.wday]]
+
+    if hours[:start_time]
+      start_time = [job_start - job_day, hours[:start_time]].max
+
+      if hours[:end_time] - start_time > job_length
+        job_day + start_time + job_length
+      else
+        job_length -= hours[:end_time] - start_time if start_time <= hours[:end_time]
+        calculate_deadline job_length, job_day + 24*60*60
+      end
+
+    else
+      calculate_deadline job_length, job_day + 24*60*60
+    end
   end
 
-  def reset_date(date)
-    @range = Time.new(date.year, date.month, date.day, start.hour, start.min)..
-      Time.new(date.year, date.month, date.day, stop.hour, stop.min)
+  private
+
+  def time_to_seconds(time)
+    Time.parse(time) - Time.parse("00:00:00")
   end
 
-  def applies?(time)
-    stop > time
+  def set_hours(day, start_time, end_time)
+    if day.is_a? Symbol
+      @normal_days[day] = {:start_time => time_to_seconds(start_time).to_i, :end_time => time_to_seconds(end_time).to_i}
+    else
+      @holidays[Time.parse(day).strftime('%Y-%m-%d')] = {:start_time => time_to_seconds(start_time), :end_time => time_to_seconds(end_time)}
+    end
   end
 
-  def stop
-    @range.end
+  def truncate_to_day(time)
+      Time.parse(time.strftime("%Y-%m-%d"))
   end
-
-  def start
-    @range.begin
-  end
-
 end
