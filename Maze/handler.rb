@@ -17,8 +17,14 @@ MAZE1 = %{#####################################
 #   #       #   #       #     #     #
 #####################################}
 
+MAZE2 = %{#####
+A####
+ ####
+B####
+}
   def initialize
     puts Maze.new(MAZE1).solvable?
+    puts Maze.new(MAZE2).steps
   end
 
 end
